@@ -32,6 +32,7 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define ADC_CHANNELS 3
+#define DEAD_ZONE 40
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -46,7 +47,7 @@ TIM_HandleTypeDef htim4;
 
 /* USER CODE BEGIN PV */
 
-volatile uint16_t adcValues[ADC_CHANNELS] = {0, };
+volatile uint16_t adcValues[ADC_CHANNELS][2] = {{0, }, {0, }};
 volatile uint8_t flag = 0;
 /* USER CODE END PV */
 
@@ -115,21 +116,25 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  const float EMA_coefficient = 0.2;
 	  uint32_t channels[] = {
 			  ADC_CHANNEL_1,
 			  ADC_CHANNEL_3,
 			  ADC_CHANNEL_2,
-	    };\
+	    };
 	  for(int i = 0; i < 3; i++) {
 	          ADC_Select_Channel(channels[i]);
 	          HAL_ADC_Start(&hadc1);
 	          HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
-	          adcValues[i] = HAL_ADC_GetValue(&hadc1);
+	          adcValues[i][0] = HAL_ADC_GetValue(&hadc1);
 	          HAL_ADC_Stop(&hadc1);
+	          adcValues[i][1] += (float)((adcValues[i][0]-adcValues[i][1]) * EMA_coefficient);
+	          if (adcValues[i][1] <= DEAD_ZONE) adcValues[i][1] = 0;
 	      }
-      TIM4->CCR4 = adcValues[2];
-      TIM4->CCR2 = adcValues[0];
-      TIM4->CCR1 = adcValues[1];
+
+      TIM4->CCR4 = adcValues[2][1];
+      TIM4->CCR2 = adcValues[0][1];
+      TIM4->CCR1 = adcValues[1][1];
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
